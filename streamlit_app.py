@@ -12,7 +12,7 @@ st.set_page_config(
     layout="wide",
 )
 
-st.title("📈 DCF Valuation Model")
+st.title(" DCF Valuation Model")
 st.caption("Discounted Cash Flow analysis — estimate intrinsic value per share")
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
@@ -139,7 +139,7 @@ try:
     st.divider()
 
     # ── Sensitivity analysis ──────────────────────────────────────────────────
-    st.subheader("🎯 Sensitivity Analysis — Price per Share")
+    st.subheader(" Sensitivity Analysis — Price per Share")
     sa_col1, sa_col2 = st.columns(2)
     with sa_col1:
         g_spread = st.slider("Growth Rate spread (±%)", 1.0, 5.0, 2.0, 0.5) / 100
@@ -170,7 +170,7 @@ try:
     st.plotly_chart(fig_heat, use_container_width=True)
 
     # ── Raw data table ────────────────────────────────────────────────────────
-    with st.expander("📋 Projected FCF Table"):
+    with st.expander(" Projected FCF Table"):
         t_arr = np.arange(1, projection_years + 1)
         pv_arr = fcfs / (1 + r) ** t_arr
         df_fcf = pd.DataFrame(
