@@ -55,26 +55,28 @@ with st.sidebar:
 
     st.subheader("Equity Bridge")
     cash = st.number_input("Cash & Equivalents ($M)", value=500.0, step=50.0)
-    debt_bridge = st.number_input(
-        "Total Debt ($M) — equity bridge",
-        value=wacc_inputs.get("total_debt", 1000.0),
-        step=100.0,
-    )
+    if rate_mode == "Direct":
+        total_debt = st.number_input("Total Debt ($M)", value=1000.0, step=100.0)
+    else:
+        total_debt = wacc_inputs["total_debt"]
+        st.caption(f"Total Debt: ${total_debt:,.0f}M (from WACC inputs above)")
     shares = st.number_input("Shares Outstanding (M)", value=250.0, step=10.0)
 
 # ── Build model ────────────────────────────────────────────────────────────────
 try:
-    model = DCF(
+    model_kwargs = dict(
         latest_fcf=latest_fcf,
         growth_rate=growth_rate,
         terminal_growth_rate=terminal_growth_rate,
         discount_rate=discount_rate,
         projection_years=projection_years,
         cash_and_equivalents=cash,
-        total_debt=debt_bridge,
         shares_outstanding=shares,
         **wacc_inputs,
     )
+    if rate_mode == "Direct":
+        model_kwargs["total_debt"] = total_debt
+    model = DCF(**model_kwargs)
 
     r = model.get_discount_rate()
     fcfs = model.free_cash_flows()
@@ -84,11 +86,19 @@ try:
     pps = model.price_per_share()
 
     # ── KPI cards ──────────────────────────────────────────────────────────────
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Discount Rate", f"{r:.2%}")
-    col2.metric("Enterprise Value", f"${ev:,.0f}M")
-    col3.metric("Equity Value", f"${eq:,.0f}M")
-    col4.metric("Intrinsic Price / Share", f"${pps:,.2f}")
+    if rate_mode == "WACC (CAPM)":
+        col1, col2, col3, col4, col5 = st.columns(5)
+        col1.metric("Cost of Equity", f"{model.cost_of_equity():.2%}")
+        col2.metric("WACC", f"{r:.2%}")
+        col3.metric("Enterprise Value", f"${ev:,.0f}M")
+        col4.metric("Equity Value", f"${eq:,.0f}M")
+        col5.metric("Intrinsic Price / Share", f"${pps:,.2f}")
+    else:
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Discount Rate", f"{r:.2%}")
+        col2.metric("Enterprise Value", f"${ev:,.0f}M")
+        col3.metric("Equity Value", f"${eq:,.0f}M")
+        col4.metric("Intrinsic Price / Share", f"${pps:,.2f}")
 
     st.divider()
 
@@ -109,7 +119,7 @@ try:
         st.subheader("Enterprise Value Bridge")
         pv_fcfs = sum(fcfs[t] / (1 + r) ** (t + 1) for t in range(projection_years))
         pv_tv = tv / (1 + r) ** projection_years
-        net_debt = debt_bridge - cash
+        net_debt = total_debt - cash
 
         fig_wf = go.Figure(
             go.Waterfall(
