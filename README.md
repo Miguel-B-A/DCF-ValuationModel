@@ -1,4 +1,4 @@
-# 📈 DCF Valuation Model
+#  DCF Valuation Model
 
 An interactive Discounted Cash Flow (DCF) valuation tool that estimates the intrinsic value per share of a company. Built with Python and Streamlit, featuring dual discount-rate modes (direct input or full WACC/CAPM calculation), projected free cash flow visualisations, an enterprise-value waterfall chart, and a two-dimensional sensitivity analysis heatmap.
 
