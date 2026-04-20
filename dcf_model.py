@@ -89,13 +89,12 @@ class DCF:
         -------
         float
             Required return on equity.
-
-        TODO
-        ----
-        - Use self.risk_free_rate, self.beta, self.equity_risk_premium
-        - Raise ValueError if any required inputs are None
         """
-        pass
+        if any(v is None for v in (self.risk_free_rate, self.beta, self.equity_risk_premium)):
+            raise ValueError(
+                "risk_free_rate, beta, and equity_risk_premium are required for CAPM."
+            )
+        return self.risk_free_rate + self.beta * self.equity_risk_premium
 
     def wacc(self) -> float:
         """
@@ -118,7 +117,16 @@ class DCF:
         - Combine with cost_of_equity()
         - Raise ValueError if required WACC inputs are None
         """
-        pass
+        if any(v is None for v in (self.cost_of_debt, self.tax_rate, self.market_cap, self.total_debt)):
+            raise ValueError(
+                "cost_of_debt, tax_rate, market_cap, and total_debt are required for WACC."
+            )
+        E = self.market_cap
+        D = self.total_debt
+        V = E + D
+        re = self.cost_of_equity()
+        rd_after_tax = self.cost_of_debt * (1 - self.tax_rate)
+        return (E / V) * re + (D / V) * rd_after_tax
 
     def get_discount_rate(self) -> float:
         """
@@ -132,7 +140,9 @@ class DCF:
         float
             The discount rate for DCF calculations.
         """
-        pass
+        if self.discount_rate is not None:
+            return self.discount_rate
+        return self.wacc()
 
     def free_cash_flows(self) -> np.ndarray:
         """
@@ -151,7 +161,8 @@ class DCF:
         - Consider: should growth be constant, or could you extend this
           to accept a list of year-by-year growth rates later?
         """
-        pass
+        t = np.arange(1, self.projection_years + 1)
+        return self.latest_fcf * (1 + self.growth_rate) ** t
 
     def terminal_value(self) -> float:
         """
@@ -173,7 +184,14 @@ class DCF:
         - Apply Gordon Growth formula
         - Validate that discount_rate > terminal_growth_rate
         """
-        pass
+        r = self.get_discount_rate()
+        g = self.terminal_growth_rate
+        if r <= g:
+            raise ValueError(
+                f"discount_rate ({r:.4f}) must exceed terminal_growth_rate ({g:.4f})."
+            )
+        fcf_n = self.free_cash_flows()[-1]
+        return fcf_n * (1 + g) / (r - g)
 
     def enterprise_value(self) -> float:
         """
@@ -192,7 +210,13 @@ class DCF:
         - Discount terminal value back to present
         - Sum everything
         """
-        pass
+        r = self.get_discount_rate()
+        n = self.projection_years
+        t = np.arange(1, n + 1)
+        fcfs = self.free_cash_flows()
+        pv_fcfs = np.sum(fcfs / (1 + r) ** t)
+        pv_tv = self.terminal_value() / (1 + r) ** n
+        return pv_fcfs + pv_tv
 
     def equity_value(self) -> float:
         """
@@ -211,7 +235,8 @@ class DCF:
         - Subtract from enterprise_value()
         - Think about: what if equity value is negative? What does that mean?
         """
-        pass
+        net_debt = (self.total_debt or 0.0) - self.cash_and_equivalents
+        return self.enterprise_value() - net_debt
 
     def price_per_share(self) -> float:
         """
@@ -227,7 +252,9 @@ class DCF:
         - Divide equity_value() by shares_outstanding
         - Raise ValueError if shares_outstanding is None or <= 0
         """
-        pass
+        if not self.shares_outstanding or self.shares_outstanding <= 0:
+            raise ValueError("shares_outstanding must be a positive number.")
+        return self.equity_value() / self.shares_outstanding
 
     def sensitivity_analysis(
         self,
@@ -260,4 +287,24 @@ class DCF:
           Consider creating a fresh DCF instance for each combo instead
           of mutating self, or save/restore state carefully.
         """
-        pass
+        base_r = self.get_discount_rate()
+        if growth_rates is None:
+            growth_rates = np.linspace(self.growth_rate - 0.02, self.growth_rate + 0.02, 5)
+        if discount_rates is None:
+            discount_rates = np.linspace(base_r - 0.02, base_r + 0.02, 5)
+
+        grid = np.empty((len(discount_rates), len(growth_rates)))
+        for i, r in enumerate(discount_rates):
+            for j, g in enumerate(growth_rates):
+                scenario = DCF(
+                    latest_fcf=self.latest_fcf,
+                    growth_rate=g,
+                    terminal_growth_rate=self.terminal_growth_rate,
+                    discount_rate=r,
+                    projection_years=self.projection_years,
+                    cash_and_equivalents=self.cash_and_equivalents,
+                    total_debt=self.total_debt,
+                    shares_outstanding=self.shares_outstanding,
+                )
+                grid[i, j] = scenario.price_per_share()
+        return grid
