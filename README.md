@@ -16,7 +16,7 @@ An interactive Discounted Cash Flow (DCF) valuation tool that estimates the intr
 1. **Clone the repository**
 
 ```bash
-git clone https://github.com/<your-username>/DCF-Valuation.git
+git clone https://github.com/Miguel-B-A/DCF-ValuationModel
 cd DCF-Valuation
 ```
 
